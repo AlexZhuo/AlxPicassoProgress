@@ -25,10 +25,10 @@ public class AlxPicassoUtils {
     private static AlxPicassoOk3Downloader.ProgressListener progressListener;
     private static final WeakHashMap<String,ProgressWheel> progressWheelHashMap = new WeakHashMap<>();//用于管理进度条的map,使用弱引用可以防止OOM
     private static final WeakHashMap<String,TextView> textViewHashMap = new WeakHashMap<>();//用于管理进度条的map,使用弱引用可以防止OOM
+    private static final ConcurrentHashMap<String,Integer> progressHashMap = new ConcurrentHashMap<>();//用于记录某个url的下载进度
     private static final Handler handler = new Handler();
     private static final int PROGRESS_SIZE = 200;//圆形进度条的大小
     private static final float PROGRESS_SPIN_SPEED = 0.2f;//圆形进度条的旋转速度
-    private static final ConcurrentHashMap<String,Integer> progressHashMap = new ConcurrentHashMap<>();//用于记录某个url的下载进度
     /**
      * 获得单例的Picasso，如果不单例那么Lru缓存就会失效
      * @param context
@@ -46,38 +46,49 @@ public class AlxPicassoUtils {
         if(progressListener == null)progressListener = new AlxPicassoOk3Downloader.ProgressListener() {
             @Override
             public void update(@IntRange(from = 0, to = 100) final int percent, final String url) {
-                Log.i("Alex","当前下载的百分比是=="+percent+"   url::"+url);
                 if(percent > 100 || percent <1)return;
                 final ProgressWheel progressWheel = progressWheelHashMap.get(url);
                 final TextView textView = textViewHashMap.get(url);
-                progressHashMap.put(url,percent);
                 if(textView == null || progressWheel == null)return;
+                final int oldPregress = progressHashMap.get(url);
                 handler.post(new Runnable() {
                     @Override
                     public void run() {
+                        Log.i("Alex","当前下载的百分比是=="+percent+"   url::"+url);
                         //防止listView的控件复用
                         if(!url.equals(progressWheel.getTag(R.id.progress_wheel)) ||! url.equals(textView.getTag(R.id.tv1))){
-                            progressWheelHashMap.remove(url);
-                            textViewHashMap.remove(url);
-                            return;
-                        }
-                        if(percent == 100 || progressHashMap.get(url)==100){
-                            textView.setVisibility(View.GONE);
-                            progressWheel.setVisibility(View.GONE);
+                            Log.i("Alex","两张不同图片的进度冲突了");
                             return;
                         }
                         //如果百分比突然不正常了，说明重新下载了一遍，这时候之前那一遍就应该干掉
-                        if(progressHashMap.get(url) > percent){//正常情况下，每次的percent都应该比上次大
+                        if(oldPregress > percent){//正常情况下，每次的percent都应该比上次大
                             Log.i("Alex","注意：：图片被下载了两次!!!!!!  "+url);
-                            if(progressHashMap.get(url) == 100) {
-                                Log.i("Alex","事情变得更加棘手了！！！");
+                            if(oldPregress == 100) {
+                                Log.i("Alex","由于上下滑动太快，导致Picasoo重复下载！！！"+" 本次进度"+percent);
+                                if(progressWheel.getVisibility() == View.GONE)progressWheel.setVisibility(View.VISIBLE);
+                                if(textView.getVisibility() == View.GONE)textView.setVisibility(View.VISIBLE);
+                                textView.setText("99.11%");
+                                progressWheel.setProgress(0.99f);//设置进度条的进度
+                            }else if(oldPregress == 101){//虽然开启了第二次下载，但是从本地读取第一次的成功
+                                Log.i("Alex","现在已经成功显示出来了，不需要再下载了");
                                 textView.setVisibility(View.GONE);
                                 progressWheel.setVisibility(View.GONE);
                             }
                             return;
                         }
+                        //两个线程同时下载，其中有一个没用的旧线程可能已经下载完，但是已经被Picasso抛弃
+                        if(oldPregress == 100){
+                            Log.i("Alex","奇怪，以前不是成功了么？");
+                        }
                         if(progressWheel.getVisibility() == View.GONE)progressWheel.setVisibility(View.VISIBLE);
                         if(textView.getVisibility() == View.GONE)textView.setVisibility(View.VISIBLE);
+                        progressHashMap.put(url,percent);
+                        if(percent == 100){
+                            progressHashMap.put(url,100);
+                            textView.setText("99.5%");//当前是即将成功
+                            progressWheel.setProgress(0.99f);//设置进度条的进度+
+                            return;
+                        }
                         textView.setText(percent+"%");
                         progressWheel.setProgress(percent/100f);//设置进度条的进度
                     }
@@ -97,11 +108,13 @@ public class AlxPicassoUtils {
         progressWheel.setTag(R.id.progress_wheel,url);
         textView.setTag(R.id.tv1,url);
         //默认不显示，有读数的时候才显示
-        if(progressHashMap.get(url) == null || progressHashMap.get(url) == 100) {
+        if(progressHashMap.get(url) == null || progressHashMap.get(url) >= 100) {
+            Log.i("Alex","当前图片未下载或者下载已经完成"+progressHashMap.get(url));
             progressWheel.setVisibility(View.GONE);
             textView.setVisibility(View.GONE);
             if(progressHashMap.get(url)==null)progressHashMap.put(url,0);
         }else{
+            Log.i("Alex","当前图片正在下载");
             progressWheel.setVisibility(View.VISIBLE);
             progressWheel.setProgress(progressHashMap.get(url)/100f);
             textView.setVisibility(View.VISIBLE);
@@ -118,6 +131,7 @@ public class AlxPicassoUtils {
                 if(url.equals(progressWheel.getTag(R.id.progress_wheel)) && url.equals(textView.getTag(R.id.tv1))){
                     progressWheel.setVisibility(View.GONE);
                     textView.setVisibility(View.GONE);
+                    progressHashMap.put(url,101);//101代表成功显示出来了
                 }
             }
 

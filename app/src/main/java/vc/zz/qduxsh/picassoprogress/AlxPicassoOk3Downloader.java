@@ -8,9 +8,7 @@ import android.util.Log;
 import com.squareup.picasso.Downloader;
 import com.squareup.picasso.NetworkPolicy;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 import okhttp3.Cache;
 import okhttp3.CacheControl;
