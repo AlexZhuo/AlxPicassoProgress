@@ -1,14 +1,16 @@
 # AlxPicassoProgress
 为Android Picasso库添加了图片下载进度实时显示的功能
 
-效果展示<br>：
+效果展示：
 
 新功能：仿Instagram效果模糊图占位
 
 ![demo](https://github.com/AlexZhuo/AlxPicassoProgress/blob/master/GifDemo/demo3.gif)
 ![demo](https://github.com/AlexZhuo/AlxPicassoProgress/blob/master/GifDemo/demo4.gif)
 
+<br><br>
 普通用法，使用默认图片占位
+
 ![demo](https://github.com/AlexZhuo/AlxPicassoProgress/blob/master/GifDemo/demo1.gif)
 ![demo](https://github.com/AlexZhuo/AlxPicassoProgress/blob/master/GifDemo/demo2.gif)
 
