@@ -24,7 +24,7 @@
         android:layout_centerHorizontal="true"
         android:layout_centerVertical="true"
         android:text="0%"
-        android:textColor="#000000"
+        android:textColor="#DD2255"
         />
 
 </RelativeLayout>

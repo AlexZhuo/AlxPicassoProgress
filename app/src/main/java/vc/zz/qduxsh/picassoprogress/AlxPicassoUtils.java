@@ -1,8 +1,10 @@
 package vc.zz.qduxsh.picassoprogress;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.Handler;
 import android.support.annotation.IntRange;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -98,7 +100,26 @@ public class AlxPicassoUtils {
         return progressListener;
     }
 
+    /**
+     * 没有模糊图片的情况
+     * @param url
+     * @param imageView
+     * @param progressWheel
+     * @param textView
+     */
     public static void displayImageProgress(final String url, ImageView imageView , final ProgressWheel progressWheel, final TextView textView){
+        displayImageProgress(url,imageView,progressWheel,textView,null);
+    }
+
+    /**
+     * 含模糊图片的情况
+     * @param url
+     * @param imageView
+     * @param progressWheel
+     * @param textView
+     * @param base64Blur
+     */
+    public static void displayImageProgress(final String url, ImageView imageView , final ProgressWheel progressWheel, final TextView textView, final String base64Blur){
         if(progressListener == null)getListener();
         if(picasso == null)getPicasso(imageView.getContext(),progressListener);
         if(progressWheel.getCircleRadius() != PROGRESS_SIZE)progressWheel.setCircleRadius(PROGRESS_SIZE);
@@ -107,13 +128,18 @@ public class AlxPicassoUtils {
         //设置tag防止复用引起的错乱,将url和空间绑定起来
         progressWheel.setTag(R.id.progress_wheel,url);
         textView.setTag(R.id.tv1,url);
+        Integer oldProgress = progressHashMap.get(url);
         //默认不显示，有读数的时候才显示
-        if(progressHashMap.get(url) == null || progressHashMap.get(url) >= 100) {
-            Log.i("Alex","当前图片未下载或者下载已经完成"+progressHashMap.get(url));
+        if(oldProgress == null) {//null为以前没有下载过，0为开始下载但是没收到数据
+            Log.i("Alex","当前图片未下载");
             progressWheel.setVisibility(View.GONE);
             textView.setVisibility(View.GONE);
-            if(progressHashMap.get(url)==null)progressHashMap.put(url,0);
-        }else{
+            progressHashMap.put(url,0);
+        }else if(progressHashMap.get(url) >= 100){
+            Log.i("Alex","当前图片下载已经完成"+progressHashMap.get(url));
+            progressWheel.setVisibility(View.GONE);
+            textView.setVisibility(View.GONE);
+        } else {
             Log.i("Alex","当前图片正在下载");
             progressWheel.setVisibility(View.VISIBLE);
             progressWheel.setProgress(progressHashMap.get(url)/100f);
@@ -123,7 +149,7 @@ public class AlxPicassoUtils {
         progressWheelHashMap.put(url,progressWheel);
         textViewHashMap.put(url,textView);
         //同一张图会开两个线程同时下载，如果你滑下去又划上来
-        picasso.load(url).placeholder(R.drawable.qraved_bg_default).into(imageView, new Callback() {
+        Callback downloadCallBack = new Callback() {
             @Override
             public void onSuccess() {
                 Log.i("Alex","图片加载成功::"+url);
@@ -139,7 +165,15 @@ public class AlxPicassoUtils {
             public void onError() {
                 Log.i("Alex","图片加载失败");
             }
-        });
-
+        };
+        //如果没有模糊占位图，就是用普通图占位，反之使用模糊图占位
+        if(TextUtils.isEmpty(base64Blur))picasso.load(url).placeholder(R.drawable.qraved_bg_default).into(imageView, downloadCallBack);
+        else picasso.load(url).into(imageView, downloadCallBack);//模糊图占位
+        //setImageBitmap必须再picasso.into()方法之后，否则会显示空白
+        if(oldProgress == null || oldProgress < 100){//如果没开始下载或者没有下载完
+            Bitmap blurBitmap = null;
+            if(!TextUtils.isEmpty(base64Blur)) blurBitmap = AlxBitmapUtils.base64ToBlurBitmap(imageView.getContext(),base64Blur);
+            if(blurBitmap != null) imageView.setImageBitmap(blurBitmap);
+        }
     }
 }
